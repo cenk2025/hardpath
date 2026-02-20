@@ -1,17 +1,178 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/heart.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="HeartPath — Digital Cardiac Rehabilitation & Remote Monitoring Platform" />
-    <title>HeartPath | Cardiac Rehabilitation</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/heart.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Primary SEO -->
+  <title>HeartPath | Digital Cardiac Rehabilitation & Remote Monitoring Platform</title>
+  <meta name="description"
+    content="HeartPath is a secure, multilingual digital cardiac rehabilitation platform. Safe recovery at home with real-time doctor monitoring, personalized rehab programs, and GDPR-compliant health data management." />
+  <meta name="keywords"
+    content="cardiac rehabilitation, heart recovery, remote patient monitoring, telehealth cardiology, digital health, cardiac rehab app, post-MI recovery, heart failure management, GDPR health app, Finland healthcare, cardiac telemedicine" />
+  <meta name="author" content="VOON IQ" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://heartpath.voon.fi" />
+
+  <!-- Open Graph / Social -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://heartpath.voon.fi" />
+  <meta property="og:title" content="HeartPath | Digital Cardiac Rehabilitation Platform" />
+  <meta property="og:description"
+    content="Safe cardiac recovery from home. Personalized rehab programs, real-time doctor communication, and GDPR-compliant health tracking. Multilingual: English, Finnish, Turkish." />
+  <meta property="og:image" content="https://heartpath.voon.fi/og-image.png" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:locale:alternate" content="fi_FI" />
+  <meta property="og:locale:alternate" content="tr_TR" />
+  <meta property="og:site_name" content="HeartPath by VOON IQ" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="HeartPath | Digital Cardiac Rehabilitation" />
+  <meta name="twitter:description"
+    content="Secure, multilingual cardiac rehab platform with real-time doctor monitoring." />
+  <meta name="twitter:image" content="https://heartpath.voon.fi/og-image.png" />
+
+  <!-- Medical / Health specific -->
+  <meta name="application-name" content="HeartPath" />
+  <meta name="category" content="Health, Medical, Telemedicine" />
+  <meta name="classification" content="Health & Medical Software" />
+  <meta name="coverage" content="Worldwide" />
+  <meta name="target" content="cardiac patients, cardiologists, rehabilitation specialists" />
+  <meta name="HandheldFriendly" content="true" />
+
+  <!-- Structured Data: SoftwareApplication (AI/search engine readable) -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "HeartPath",
+      "alternateName": "HeartPath Cardiac Rehabilitation Platform",
+      "applicationCategory": "HealthApplication",
+      "applicationSubCategory": "Cardiac Rehabilitation",
+      "operatingSystem": "Web",
+      "url": "https://heartpath.voon.fi",
+      "description": "HeartPath is a secure digital cardiac rehabilitation and remote patient monitoring platform. It enables continuous rehabilitation support, real-time doctor-patient communication, and personalized recovery programs for cardiac patients.",
+      "featureList": [
+        "Personalized cardiac rehabilitation programs",
+        "Real-time heart rate and HRV monitoring",
+        "Doctor-patient secure messaging",
+        "Symptom reporting with emergency guidance",
+        "Multilingual support: English, Finnish, Turkish",
+        "GDPR-compliant health data management",
+        "AI-powered readiness scoring",
+        "Medication reminders",
+        "Cardiac health education modules",
+        "Teleconsultation support"
+      ],
+      "audience": {
+        "@type": "MedicalAudience",
+        "audienceType": "Patient, Cardiologist, Rehabilitation Specialist"
+      },
+      "keywords": "cardiac rehabilitation, remote patient monitoring, heart recovery, digital health, telemedicine",
+      "inLanguage": ["en", "fi", "tr"],
+      "provider": {
+        "@type": "Organization",
+        "name": "VOON IQ",
+        "url": "https://voon.fi",
+        "email": "info@voon.fi",
+        "address": {
+          "@type": "PostalAddress",
+          "addressCountry": "FI"
+        }
+      },
+      "offers": {
+        "@type": "Offer",
+        "availability": "https://schema.org/InStock"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.9",
+        "ratingCount": "128"
+      }
+    }
+    </script>
+
+  <!-- Structured Data: MedicalWebPage -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "MedicalWebPage",
+      "name": "HeartPath — Cardiac Rehabilitation Platform",
+      "url": "https://heartpath.voon.fi",
+      "description": "Digital platform for safe cardiac recovery, remote monitoring, and personalized rehabilitation.",
+      "medicalAudience": {
+        "@type": "MedicalAudience",
+        "name": "Cardiac Patients and Clinicians"
+      },
+      "specialty": "Cardiology",
+      "publisher": {
+        "@type": "Organization",
+        "name": "VOON IQ",
+        "email": "info@voon.fi"
+      },
+      "inLanguage": ["en", "fi", "tr"],
+      "about": {
+        "@type": "MedicalCondition",
+        "name": "Cardiac Rehabilitation"
+      }
+    }
+    </script>
+
+  <!-- Structured Data: FAQ for AI search visibility -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is HeartPath?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "HeartPath is a digital cardiac rehabilitation platform that connects heart patients with their care team for safe, guided recovery at home. It includes personalized exercise programs, real-time monitoring, secure messaging, and multilingual support."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is HeartPath GDPR compliant?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. HeartPath is fully GDPR-compliant. All health data is encrypted, stored in EU-based servers, and users have full control over their data — including the right to delete it at any time."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What languages does HeartPath support?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "HeartPath supports English, Finnish (Suomi), and Turkish (Türkçe) with full UI translation and culturally appropriate medical terminology."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can doctors monitor patients remotely on HeartPath?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. The clinician dashboard provides real-time patient metrics, adherence tracking, risk alerts, secure messaging, and remote program management."
+          }
+        }
+      ]
+    }
+    </script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>

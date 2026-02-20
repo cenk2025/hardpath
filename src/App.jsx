@@ -1,9 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import CookieBanner from './components/CookieBanner'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Onboarding from './pages/Onboarding'
+import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
 import PatientDashboard from './pages/patient/PatientDashboard'
 import RehabProgram from './pages/patient/RehabProgram'
 import DailyCheckin from './pages/patient/DailyCheckin'
@@ -52,12 +55,15 @@ export default function App() {
     return (
         <AuthProvider>
             <BrowserRouter>
+                <CookieBanner />
                 <Routes>
                     {/* Public */}
                     <Route path="/" element={<Landing />} />
                     <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
                     <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
                     <Route path="/onboarding" element={<Onboarding />} />
+                    <Route path="/privacy" element={<Privacy />} />
+                    <Route path="/terms" element={<Terms />} />
 
                     {/* Patient routes */}
                     <Route path="/patient" element={<ProtectedRoute role="patient"><PatientDashboard /></ProtectedRoute>} />

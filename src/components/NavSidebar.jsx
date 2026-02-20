@@ -1,9 +1,10 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import {
     Heart, Home, Activity, ClipboardList, Pill, MessageCircle,
-    BookOpen, Users, Bell, LayoutDashboard, LogOut, Stethoscope
+    BookOpen, Users, Bell, LayoutDashboard, LogOut, Stethoscope, Menu, X
 } from 'lucide-react'
 import LanguageSelector from './LanguageSelector'
 
@@ -11,6 +12,17 @@ export default function NavSidebar({ alertCount = 0 }) {
     const { t } = useTranslation()
     const { profile, signOut, isDoctor } = useAuth()
     const navigate = useNavigate()
+    const location = useLocation()
+    const [open, setOpen] = useState(false)
+
+    // Close drawer on route change
+    useEffect(() => { setOpen(false) }, [location.pathname])
+
+    // Lock body scroll when drawer open on mobile
+    useEffect(() => {
+        document.body.style.overflow = open ? 'hidden' : ''
+        return () => { document.body.style.overflow = '' }
+    }, [open])
 
     async function handleLogout() {
         await signOut()
@@ -36,8 +48,8 @@ export default function NavSidebar({ alertCount = 0 }) {
 
     const links = isDoctor ? doctorLinks : patientLinks
 
-    return (
-        <nav className="sidebar">
+    const sidebarContent = (
+        <>
             <div className="sidebar-logo">
                 <div className="logo-mark">
                     <div className="logo-icon">
@@ -45,11 +57,17 @@ export default function NavSidebar({ alertCount = 0 }) {
                     </div>
                     <div>
                         <div className="logo-text">HeartPath</div>
-                        <div className="logo-sub">
-                            {isDoctor ? 'Clinician' : 'Rehabilitation'}
-                        </div>
+                        <div className="logo-sub">{isDoctor ? 'Clinician' : 'Rehabilitation'}</div>
                     </div>
                 </div>
+                {/* Mobile close button */}
+                <button
+                    className="sidebar-close-btn"
+                    onClick={() => setOpen(false)}
+                    aria-label="Close menu"
+                >
+                    <X size={20} />
+                </button>
             </div>
 
             <div className="sidebar-nav">
@@ -85,6 +103,48 @@ export default function NavSidebar({ alertCount = 0 }) {
                     {t('nav.logout')}
                 </button>
             </div>
-        </nav>
+        </>
+    )
+
+    return (
+        <>
+            {/* Mobile topbar with hamburger */}
+            <div className="mobile-topbar">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 30, height: 30, background: 'linear-gradient(135deg,#0891b2,#22d3ee)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Heart size={14} fill="white" color="white" />
+                    </div>
+                    <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--navy-900)' }}>HeartPath</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {alertCount > 0 && (
+                        <div style={{ width: 20, height: 20, background: 'var(--red-500)', borderRadius: '50%', color: 'white', fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {alertCount}
+                        </div>
+                    )}
+                    <button className="hamburger-btn" onClick={() => setOpen(true)} aria-label="Open menu">
+                        <Menu size={22} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Desktop sidebar */}
+            <nav className="sidebar desktop-sidebar">
+                {sidebarContent}
+            </nav>
+
+            {/* Mobile overlay */}
+            {open && (
+                <div
+                    className="sidebar-overlay"
+                    onClick={() => setOpen(false)}
+                />
+            )}
+
+            {/* Mobile drawer */}
+            <nav className={`sidebar mobile-drawer${open ? ' open' : ''}`}>
+                {sidebarContent}
+            </nav>
+        </>
     )
 }

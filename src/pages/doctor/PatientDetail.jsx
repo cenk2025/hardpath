@@ -6,7 +6,8 @@ import { supabase } from '../../lib/supabase'
 import NavSidebar from '../../components/NavSidebar'
 import {
     ArrowLeft, Activity, MessageCircle, AlertCircle,
-    Heart, ClipboardList, RefreshCw, User, Calendar
+    Heart, ClipboardList, RefreshCw, User, Calendar,
+    Pill, Plus, Trash2, Clock
 } from 'lucide-react'
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -20,7 +21,12 @@ export default function PatientDetail() {
     const [patient, setPatient] = useState(null)
     const [metrics, setMetrics] = useState([])
     const [symptoms, setSymptoms] = useState([])
+    const [medications, setMedications] = useState([])
     const [loading, setLoading] = useState(true)
+    const [showMedForm, setShowMedForm] = useState(false)
+    const [newMed, setNewMed] = useState({ name: '', dose: '', time_of_day: '08:00' })
+    const [savingMed, setSavingMed] = useState(false)
+    const [medError, setMedError] = useState(null)
 
     useEffect(() => {
         if (id) fetchAll()
@@ -29,36 +35,50 @@ export default function PatientDetail() {
     async function fetchAll() {
         setLoading(true)
         try {
-            // Patient profile
             const { data: prof } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', id)
-                .single()
+                .from('profiles').select('*').eq('id', id).single()
             setPatient(prof)
 
-            // Last 14 days of daily metrics
             const { data: met } = await supabase
-                .from('daily_metrics')
-                .select('*')
-                .eq('patient_id', id)
-                .order('recorded_at', { ascending: true })
-                .limit(14)
+                .from('daily_metrics').select('*').eq('patient_id', id)
+                .order('recorded_at', { ascending: true }).limit(14)
             setMetrics(met || [])
 
-            // Last 5 symptom reports
             const { data: sym } = await supabase
-                .from('symptom_reports')
-                .select('*')
-                .eq('patient_id', id)
-                .order('timestamp', { ascending: false })
-                .limit(5)
+                .from('symptom_reports').select('*').eq('patient_id', id)
+                .order('timestamp', { ascending: false }).limit(5)
             setSymptoms(sym || [])
+
+            const { data: meds } = await supabase
+                .from('medications').select('*').eq('patient_id', id)
+                .order('created_at', { ascending: true })
+            setMedications(meds || [])
         } catch (err) {
             console.error('PatientDetail load error:', err)
         } finally {
             setLoading(false)
         }
+    }
+
+    async function addMedication() {
+        if (!newMed.name.trim()) return
+        setSavingMed(true); setMedError(null)
+        const { data, error: err } = await supabase
+            .from('medications')
+            .insert({ patient_id: id, ...newMed })
+            .select().single()
+        if (err) setMedError(err.message)
+        else {
+            setMedications(ms => [...ms, data])
+            setNewMed({ name: '', dose: '', time_of_day: '08:00' })
+            setShowMedForm(false)
+        }
+        setSavingMed(false)
+    }
+
+    async function deleteMedication(medId) {
+        const { error: err } = await supabase.from('medications').delete().eq('id', medId)
+        if (!err) setMedications(ms => ms.filter(m => m.id !== medId))
     }
 
     // Prepare chart data
@@ -299,7 +319,92 @@ export default function PatientDetail() {
                         </div>
                     )}
 
+                    {/* ─── Medications Section ─── */}
+                    <div className="card" style={{ marginTop: 24 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                            <div className="card-title">
+                                <Pill size={14} style={{ display: 'inline', marginRight: 6, color: 'var(--teal-500)' }} />
+                                Medications
+                                <span className="badge badge-slate" style={{ marginLeft: 8, fontSize: '0.72rem' }}>{medications.length}</span>
+                            </div>
+                            <button className="btn btn-primary btn-sm" onClick={() => setShowMedForm(f => !f)}>
+                                <Plus size={14} /> Add Medication
+                            </button>
+                        </div>
+
+                        {showMedForm && (
+                            <div style={{ background: 'var(--off-white)', padding: 16, borderRadius: 10, marginBottom: 16, border: '1.5px solid var(--teal-500)' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 120px', gap: 12, marginBottom: 12 }}>
+                                    <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label className="form-label">Medication Name</label>
+                                        <input className="form-input" value={newMed.name} onChange={e => setNewMed(n => ({ ...n, name: e.target.value }))} placeholder="e.g. Bisoprolol" />
+                                    </div>
+                                    <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label className="form-label">Dose</label>
+                                        <input className="form-input" value={newMed.dose} onChange={e => setNewMed(n => ({ ...n, dose: e.target.value }))} placeholder="e.g. 5mg" />
+                                    </div>
+                                    <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label className="form-label">Time</label>
+                                        <input className="form-input" type="time" value={newMed.time_of_day} onChange={e => setNewMed(n => ({ ...n, time_of_day: e.target.value }))} />
+                                    </div>
+                                </div>
+                                {medError && (
+                                    <div className="alert-banner danger" style={{ marginBottom: 10 }}>
+                                        <AlertCircle size={13} /> {medError}
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button className="btn btn-primary btn-sm" onClick={addMedication} disabled={savingMed || !newMed.name.trim()}>
+                                        {savingMed ? 'Saving…' : <><Plus size={13} /> Add</>}
+                                    </button>
+                                    <button className="btn btn-secondary btn-sm" onClick={() => { setShowMedForm(false); setMedError(null) }}>Cancel</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {medications.length === 0 && !showMedForm && (
+                            <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--slate-400)' }}>
+                                <Pill size={28} style={{ opacity: 0.3, marginBottom: 8 }} />
+                                <p style={{ fontSize: '0.85rem' }}>No medications prescribed yet. Use "+ Add Medication" to prescribe.</p>
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {medications.map(med => (
+                                <div key={med.id} style={{
+                                    display: 'flex', alignItems: 'center', gap: 14,
+                                    padding: '10px 14px', background: 'var(--off-white)',
+                                    borderRadius: 8, border: '1px solid var(--slate-200)'
+                                }}>
+                                    <div style={{
+                                        width: 36, height: 36, borderRadius: 8,
+                                        background: 'rgba(8,145,178,0.1)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                                    }}>
+                                        <Pill size={16} color="var(--teal-500)" />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--navy-900)' }}>{med.name}</div>
+                                        <div style={{ fontSize: '0.78rem', color: 'var(--slate-500)', display: 'flex', gap: 10, marginTop: 2 }}>
+                                            {med.dose && <span>💊 {med.dose}</span>}
+                                            {med.time_of_day && <span><Clock size={11} style={{ display: 'inline', marginRight: 2 }} />{med.time_of_day?.slice(0, 5)}</span>}
+                                        </div>
+                                    </div>
+                                    <button
+                                        className="btn btn-ghost btn-sm"
+                                        onClick={() => deleteMedication(med.id)}
+                                        style={{ color: 'var(--red-500)', padding: '4px 8px' }}
+                                        title="Remove medication"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                     <div className="disclaimer-bar" style={{ marginTop: 32 }}>{t('common.disclaimer')}</div>
+
                 </div>
             </div>
         </div>

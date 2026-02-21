@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 
 // Generate alert objects from raw Supabase data
-function buildAlerts(symptomReports, highHRMetrics, lowReadinessMetrics) {
+function buildAlerts(symptomReports, highHRMetrics, lowReadinessMetrics, highBPLogs) {
     const alerts = []
 
     // Symptom-based alerts
@@ -58,6 +58,21 @@ function buildAlerts(symptomReports, highHRMetrics, lowReadinessMetrics) {
         })
     })
 
+    // High blood pressure alerts (systolic >= 140)
+    highBPLogs.forEach(bp => {
+        alerts.push({
+            id: `bp-${bp.id}`,
+            type: 'high_bp',
+            patient_id: bp.patient_id,
+            patient: bp.profiles?.full_name || 'Unknown Patient',
+            detail: `${bp.period === 'morning' ? '🌅 Morning' : '🌙 Evening'} blood pressure recorded at ${bp.systolic}/${bp.diastolic} mmHg — systolic above 140 mmHg threshold.${bp.notes ? ` Note: ${bp.notes}` : ''}`,
+            time: bp.recorded_at,
+            level: bp.systolic >= 160 ? 'high' : 'medium',
+            resolved: false,
+            icon: Gauge,
+        })
+    })
+
     // Sort newest first
     alerts.sort((a, b) => new Date(b.time) - new Date(a.time))
     return alerts
@@ -82,11 +97,12 @@ export default function Alerts() {
 
     useEffect(() => {
         fetchAlerts()
-        // Realtime: re-fetch when new symptom reports or metrics arrive
+        // Realtime: re-fetch when new symptom reports, metrics, or BP logs arrive
         const channel = supabase
             .channel('alerts-realtime')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'symptom_reports' }, () => fetchAlerts())
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'daily_metrics' }, () => fetchAlerts())
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'blood_pressure_logs' }, () => fetchAlerts())
             .subscribe()
         return () => supabase.removeChannel(channel)
     }, [])
@@ -124,7 +140,16 @@ export default function Alerts() {
                 .order('recorded_at', { ascending: false })
                 .limit(20)
 
-            setAlerts(buildAlerts(symptoms || [], highHR || [], lowReadiness || []))
+            // High blood pressure (systolic >= 140) in last 7 days
+            const { data: highBP } = await supabase
+                .from('blood_pressure_logs')
+                .select('*, profiles(full_name)')
+                .gte('systolic', 140)
+                .gte('recorded_at', since.toISOString())
+                .order('recorded_at', { ascending: false })
+                .limit(20)
+
+            setAlerts(buildAlerts(symptoms || [], highHR || [], lowReadiness || [], highBP || []))
         } catch (err) {
             console.error('Alerts fetch error:', err)
         } finally {
@@ -234,7 +259,7 @@ export default function Alerts() {
                                         <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--navy-900)', marginBottom: 4 }}>
                                             {alert.patient}
                                             <span style={{ fontWeight: 500, color: 'var(--slate-500)', marginLeft: 6 }}>
-                                                — {alert.type === 'symptom' ? 'Symptom Report' : alert.type === 'high_hr' ? 'High Heart Rate' : 'Low Readiness'}
+                                                — {alert.type === 'symptom' ? 'Symptom Report' : alert.type === 'high_hr' ? 'High Heart Rate' : alert.type === 'high_bp' ? 'High Blood Pressure' : 'Low Readiness'}
                                             </span>
                                         </div>
                                         <p style={{ fontSize: '0.875rem', color: 'var(--slate-600)', lineHeight: 1.5 }}>{alert.detail}</p>

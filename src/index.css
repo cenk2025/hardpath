@@ -106,6 +106,11 @@ body {
   overflow-y: auto;
 }
 
+/* Hide mobile drawer on desktop */
+.mobile-drawer {
+  display: none;
+}
+
 .sidebar-logo {
   padding: 28px 24px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -1008,6 +1013,17 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.landing-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Hidden on desktop, shown on mobile */
+.landing-hamburger {
+  display: none !important;
+}
+
 .landing-hero {
   display: flex;
   flex-direction: column;
@@ -1559,13 +1575,15 @@ body {
     display: block;
   }
 
-  /* Desktop sidebar — hidden by default */
+  /* Desktop sidebar — hidden on mobile */
   .desktop-sidebar {
     display: none;
   }
 
-  /* Mobile drawer */
+  /* Mobile drawer — hidden off-screen, slides in when .open */
   .mobile-drawer {
+    display: flex;
+    flex-direction: column;
     position: fixed;
     top: 0;
     left: 0;
@@ -1575,6 +1593,8 @@ body {
     transform: translateX(-100%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 4px 0 32px rgba(0, 0, 0, 0.3);
+    overflow-y: auto;
+    background: var(--navy-900);
   }
 
   .mobile-drawer.open {
@@ -1710,6 +1730,19 @@ body {
     padding: 14px 20px !important;
     flex-wrap: wrap;
     gap: 12px;
+  }
+
+  /* Landing nav on mobile — show hamburger, hide links */
+  .landing-nav {
+    padding: 16px 20px;
+  }
+
+  .landing-nav-links {
+    display: none;
+  }
+
+  .landing-hamburger {
+    display: flex !important;
   }
 
   /* Landing hero */

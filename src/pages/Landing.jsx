@@ -1,11 +1,13 @@
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Heart, Activity, Shield, MessageCircle, ChevronRight, Stethoscope, Mail } from 'lucide-react'
+import { Heart, Activity, Shield, MessageCircle, ChevronRight, Stethoscope, Mail, Menu, X } from 'lucide-react'
 import LanguageSelector from '../components/LanguageSelector'
 
 export default function Landing() {
     const { t } = useTranslation()
     const navigate = useNavigate()
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
     return (
         <div className="landing-page">
@@ -17,12 +19,56 @@ export default function Landing() {
                     </div>
                     <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'white', letterSpacing: '-0.02em' }}>HeartPath</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+
+                {/* Desktop nav links */}
+                <div className="landing-nav-links">
                     <LanguageSelector dark />
                     <Link to="/login" className="btn btn-ghost" style={{ color: 'rgba(255,255,255,0.7)' }}>{t('auth.login')}</Link>
                     <Link to="/register" className="btn btn-primary btn-sm">{t('auth.register')}</Link>
                 </div>
+
+                {/* Mobile hamburger */}
+                <button
+                    className="landing-hamburger"
+                    onClick={() => setMobileMenuOpen(true)}
+                    aria-label="Open menu"
+                    style={{ display: 'none', background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: 6 }}
+                >
+                    <Menu size={24} />
+                </button>
             </nav>
+
+            {/* Mobile menu drawer */}
+            {mobileMenuOpen && (
+                <div
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 400, backdropFilter: 'blur(3px)' }}
+                    onClick={() => setMobileMenuOpen(false)}
+                />
+            )}
+            <div style={{
+                position: 'fixed', top: 0, right: 0, bottom: 0, width: 260,
+                background: 'var(--navy-900)', zIndex: 401, padding: '24px 20px',
+                display: 'flex', flexDirection: 'column', gap: 16,
+                transform: mobileMenuOpen ? 'translateX(0)' : 'translateX(100%)',
+                transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
+                boxShadow: '-4px 0 32px rgba(0,0,0,0.4)',
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontWeight: 800, color: 'white', fontSize: '1.1rem' }}>HeartPath</span>
+                    <button onClick={() => setMobileMenuOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer' }}>
+                        <X size={22} />
+                    </button>
+                </div>
+                <LanguageSelector dark />
+                <Link to="/login" onClick={() => setMobileMenuOpen(false)}
+                    style={{ padding: '12px 16px', borderRadius: 8, color: 'rgba(255,255,255,0.8)', textDecoration: 'none', fontWeight: 600, background: 'rgba(255,255,255,0.06)' }}>
+                    {t('auth.login')}
+                </Link>
+                <Link to="/register" onClick={() => setMobileMenuOpen(false)}
+                    style={{ padding: '12px 16px', borderRadius: 8, color: 'white', textDecoration: 'none', fontWeight: 700, background: 'linear-gradient(135deg, #0891b2, #22d3ee)', textAlign: 'center' }}>
+                    {t('auth.register')}
+                </Link>
+            </div>
 
             {/* Hero */}
             <section className="landing-hero">

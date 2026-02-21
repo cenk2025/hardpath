@@ -1,156 +1,303 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '../../context/AuthContext'
+import { supabase } from '../../lib/supabase'
 import NavSidebar from '../../components/NavSidebar'
-import { ArrowLeft, Heart, Activity, Moon, TrendingUp, AlertTriangle } from 'lucide-react'
 import {
-    LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-    Tooltip, ResponsiveContainer, Legend
+    ArrowLeft, Activity, MessageCircle, AlertCircle,
+    Heart, ClipboardList, RefreshCw, User, Calendar
+} from 'lucide-react'
+import {
+    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    BarChart, Bar
 } from 'recharts'
 
-const PATIENT_DATA = {
-    p1: { name: 'Matti Virtanen', age: 58, condition: 'Post-MI', adherence: 85, program: 'Phase 1 — Initial Recovery', risk: 'low', hr: 64, hrv: 52, sleep: 7.2 },
-    p2: { name: 'Ayşe Yılmaz', age: 62, condition: 'Post-CABG', adherence: 72, program: 'Phase 2 — Progressive Exercise', risk: 'medium', hr: 78, hrv: 38, sleep: 6.5 },
-    p3: { name: 'John Smith', age: 55, condition: 'Heart Failure', adherence: 45, program: 'Phase 1 — Initial Recovery', risk: 'high', hr: 92, hrv: 22, sleep: 5.5 },
-    p4: { name: 'Helena Korhonen', age: 70, condition: 'Post-Stent', adherence: 91, program: 'Phase 3 — Maintenance', risk: 'low', hr: 60, hrv: 58, sleep: 7.8 },
-    p5: { name: 'Mehmet Çelik', age: 65, condition: 'Arrhythmia', adherence: 63, program: 'Phase 2 — Progressive Exercise', risk: 'medium', hr: 81, hrv: 32, sleep: 6.8 },
-}
-
-const hrTrend = [
-    { day: 'Mon', hr: 72, safe_max: 105 }, { day: 'Tue', hr: 68, safe_max: 105 },
-    { day: 'Wed', hr: 89, safe_max: 105 }, { day: 'Thu', hr: 76, safe_max: 105 },
-    { day: 'Fri', hr: 70, safe_max: 105 }, { day: 'Sat', hr: 65, safe_max: 105 }, { day: 'Sun', hr: 68, safe_max: 105 },
-]
-
-const adherenceTrend = [
-    { week: 'W1', completed: 4, total: 5 }, { week: 'W2', completed: 5, total: 5 },
-    { week: 'W3', completed: 3, total: 5 }, { week: 'W4', completed: 5, total: 5 },
-]
-
-const symptomHistory = [
-    { date: '2026-02-18', type: 'Mild fatigue', severity: 'mild' },
-    { date: '2026-02-16', type: 'Shortness of breath', severity: 'moderate' },
-    { date: '2026-02-12', type: 'Dizziness', severity: 'mild' },
-]
-
 export default function PatientDetail() {
-    const { t } = useTranslation()
     const { id } = useParams()
     const navigate = useNavigate()
-    const patient = PATIENT_DATA[id] || PATIENT_DATA.p1
+    const { t } = useTranslation()
+    const [patient, setPatient] = useState(null)
+    const [metrics, setMetrics] = useState([])
+    const [symptoms, setSymptoms] = useState([])
+    const [loading, setLoading] = useState(true)
 
-    const riskColor = patient.risk === 'high' ? 'var(--red-500)' : patient.risk === 'medium' ? 'var(--amber-500)' : 'var(--green-500)'
+    useEffect(() => {
+        if (id) fetchAll()
+    }, [id])
+
+    async function fetchAll() {
+        setLoading(true)
+        try {
+            // Patient profile
+            const { data: prof } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', id)
+                .single()
+            setPatient(prof)
+
+            // Last 14 days of daily metrics
+            const { data: met } = await supabase
+                .from('daily_metrics')
+                .select('*')
+                .eq('patient_id', id)
+                .order('recorded_at', { ascending: true })
+                .limit(14)
+            setMetrics(met || [])
+
+            // Last 5 symptom reports
+            const { data: sym } = await supabase
+                .from('symptom_reports')
+                .select('*')
+                .eq('patient_id', id)
+                .order('timestamp', { ascending: false })
+                .limit(5)
+            setSymptoms(sym || [])
+        } catch (err) {
+            console.error('PatientDetail load error:', err)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    // Prepare chart data
+    const hrData = metrics.map(m => ({
+        date: new Date(m.recorded_at).toLocaleDateString('en', { month: 'short', day: 'numeric' }),
+        hr: m.resting_hr,
+        readiness: m.readiness_score,
+    }))
+
+    const fatigueData = metrics.map(m => ({
+        date: new Date(m.recorded_at).toLocaleDateString('en', { month: 'short', day: 'numeric' }),
+        fatigue: m.fatigue_level,
+    }))
+
+    const latest = metrics[metrics.length - 1]
+
+    if (loading) {
+        return (
+            <div className="app-layout">
+                <NavSidebar />
+                <div className="app-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="spinner" />
+                </div>
+            </div>
+        )
+    }
+
+    if (!patient) {
+        return (
+            <div className="app-layout">
+                <NavSidebar />
+                <div className="app-main">
+                    <div className="page-content" style={{ textAlign: 'center', paddingTop: 80 }}>
+                        <AlertCircle size={40} style={{ marginBottom: 12, color: 'var(--red-500)' }} />
+                        <h2>Patient not found</h2>
+                        <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={() => navigate('/doctor')}>
+                            Back to Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    function getInitials(name) {
+        return (name || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    }
+
+    function getRiskColor(score) {
+        if (!score) return 'var(--slate-400)'
+        if (score < 40) return 'var(--red-500)'
+        if (score < 65) return 'var(--amber-500)'
+        return 'var(--green-500)'
+    }
+
+    function severityBadge(sev) {
+        if (sev === 'severe') return <span className="badge badge-red">Severe</span>
+        if (sev === 'moderate') return <span className="badge badge-amber">Moderate</span>
+        return <span className="badge badge-teal">Mild</span>
+    }
 
     return (
         <div className="app-layout">
-            <NavSidebar alertCount={1} />
-            <div className="app-main with-sidebar">
+            <NavSidebar />
+            <div className="app-main">
                 <div className="topbar">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                         <button className="btn btn-ghost btn-sm" onClick={() => navigate('/doctor')}>
-                            <ArrowLeft size={16} /> Back
+                            <ArrowLeft size={16} /> Patients
                         </button>
-                        <h1 className="topbar-title">{patient.name}</h1>
+                        <div style={{ width: 1, height: 20, background: 'var(--slate-200)' }} />
+                        <h1 className="topbar-title">{patient.full_name || 'Patient'}</h1>
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <span className="badge" style={{ background: riskColor + '15', color: riskColor }}>
-                            {patient.risk.toUpperCase()} RISK
-                        </span>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                        <button className="btn btn-secondary btn-sm" onClick={fetchAll}>
+                            <RefreshCw size={14} /> Refresh
+                        </button>
+                        <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => navigate(`/doctor/messages?patient=${id}`)}
+                        >
+                            <MessageCircle size={15} /> Send Message
+                        </button>
                     </div>
                 </div>
 
                 <div className="page-content slide-up">
-                    {/* Top info card */}
-                    <div className="card" style={{ marginBottom: 24, background: 'linear-gradient(135deg, var(--navy-800), var(--navy-700))', color: 'white', border: 'none' }}>
-                        <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-                            <div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--teal-400)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Patient</div>
-                                <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>{patient.name}</div>
-                                <div style={{ color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>Age {patient.age} · {patient.condition}</div>
+                    {/* Patient header card */}
+                    <div className="card" style={{ marginBottom: 24 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+                            <div className="user-avatar" style={{ width: 64, height: 64, fontSize: '1.4rem', flexShrink: 0 }}>
+                                {getInitials(patient.full_name)}
                             </div>
-                            <div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--teal-400)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Program</div>
-                                <div style={{ fontWeight: 600 }}>{patient.program}</div>
+                            <div style={{ flex: 1 }}>
+                                <h2 style={{ fontWeight: 800, fontSize: '1.3rem', color: 'var(--navy-900)', marginBottom: 4 }}>
+                                    {patient.full_name || 'Unknown'}
+                                </h2>
+                                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '0.85rem', color: 'var(--slate-500)' }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                        <User size={13} /> Patient
+                                    </span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                        <Calendar size={13} /> Joined {new Date(patient.created_at).toLocaleDateString('en', { year: 'numeric', month: 'short' })}
+                                    </span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                        🌐 {patient.language?.toUpperCase() || 'EN'}
+                                    </span>
+                                    <span className={`badge ${patient.onboarding_completed ? 'badge-green' : 'badge-amber'}`}>
+                                        {patient.onboarding_completed ? 'Onboarded' : 'Onboarding pending'}
+                                    </span>
+                                </div>
                             </div>
-                            <div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--teal-400)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Adherence</div>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: patient.adherence < 60 ? '#fca5a5' : '#6ee7b7' }}>{patient.adherence}%</div>
-                            </div>
-                            {[
-                                { label: 'Resting HR', value: `${patient.hr} bpm`, icon: Heart },
-                                { label: 'HRV', value: `${patient.hrv} ms`, icon: Activity },
-                                { label: 'Sleep', value: `${patient.sleep} hrs`, icon: Moon },
-                            ].map(({ label, value, icon: Icon }) => (
-                                <div key={label}>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--teal-400)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
-                                    <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <Icon size={14} /> {value}
+
+                            {/* Quick stats */}
+                            {latest && (
+                                <div style={{ display: 'flex', gap: 24 }}>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: getRiskColor(latest.readiness_score) }}>
+                                            {latest.readiness_score ?? '—'}
+                                        </div>
+                                        <div style={{ fontSize: '0.72rem', color: 'var(--slate-400)', fontWeight: 600 }}>READINESS</div>
+                                    </div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--navy-900)' }}>
+                                            {latest.resting_hr ?? '—'}
+                                        </div>
+                                        <div style={{ fontSize: '0.72rem', color: 'var(--slate-400)', fontWeight: 600 }}>REST HR BPM</div>
+                                    </div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--navy-900)' }}>
+                                            {latest.fatigue_level ?? '—'}
+                                        </div>
+                                        <div style={{ fontSize: '0.72rem', color: 'var(--slate-400)', fontWeight: 600 }}>FATIGUE /10</div>
                                     </div>
                                 </div>
-                            ))}
+                            )}
                         </div>
                     </div>
 
-                    <div className="grid-2" style={{ marginBottom: 24 }}>
-                        {/* HR Trend */}
-                        <div className="card">
-                            <div className="card-title" style={{ marginBottom: 16 }}>
-                                <TrendingUp size={14} style={{ display: 'inline', marginRight: 6, color: 'var(--teal-500)' }} />
-                                Heart Rate Trend (7 days)
-                            </div>
-                            <div style={{ height: 200 }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={hrTrend} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--slate-200)" />
-                                        <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--slate-400)' }} />
-                                        <YAxis domain={[55, 115]} tick={{ fontSize: 11, fill: 'var(--slate-400)' }} />
-                                        <Tooltip contentStyle={{ borderRadius: 8, fontSize: '0.8rem' }} />
-                                        <Line type="monotone" dataKey="hr" stroke="var(--teal-500)" strokeWidth={2} dot={{ r: 3 }} name="HR (bpm)" />
-                                        <Line type="monotone" dataKey="safe_max" stroke="var(--red-500)" strokeWidth={1} strokeDasharray="5 3" dot={false} name="Safe Max" />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
+                    {metrics.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--slate-400)' }}>
+                            <ClipboardList size={40} style={{ marginBottom: 12, opacity: 0.3 }} />
+                            <p style={{ fontWeight: 600 }}>No check-in data yet</p>
+                            <p style={{ fontSize: '0.85rem' }}>This patient hasn't completed a daily check-in. You can send them a reminder.</p>
+                            <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => navigate(`/doctor/messages?patient=${id}`)}>
+                                <MessageCircle size={15} /> Send Reminder
+                            </button>
                         </div>
+                    ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                            {/* HR trend */}
+                            <div className="card">
+                                <div className="card-title" style={{ marginBottom: 16 }}>
+                                    <Heart size={14} style={{ display: 'inline', marginRight: 6, color: 'var(--teal-500)' }} />
+                                    Heart Rate Trend
+                                </div>
+                                <div style={{ height: 200 }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={hrData} margin={{ top: 0, right: 5, bottom: 0, left: -20 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="var(--slate-200)" />
+                                            <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--slate-400)' }} />
+                                            <YAxis tick={{ fontSize: 10, fill: 'var(--slate-400)' }} />
+                                            <Tooltip contentStyle={{ borderRadius: 8, fontSize: '0.8rem' }} formatter={v => [`${v} bpm`, 'Resting HR']} />
+                                            <Line type="monotone" dataKey="hr" stroke="var(--red-500)" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
 
-                        {/* Adherence */}
-                        <div className="card">
-                            <div className="card-title" style={{ marginBottom: 16 }}>
-                                <Activity size={14} style={{ display: 'inline', marginRight: 6, color: 'var(--teal-500)' }} />
-                                Weekly Adherence
+                            {/* Readiness trend */}
+                            <div className="card">
+                                <div className="card-title" style={{ marginBottom: 16 }}>
+                                    <Activity size={14} style={{ display: 'inline', marginRight: 6, color: 'var(--teal-500)' }} />
+                                    Readiness Score Trend
+                                </div>
+                                <div style={{ height: 200 }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={hrData} margin={{ top: 0, right: 5, bottom: 0, left: -20 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="var(--slate-200)" />
+                                            <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--slate-400)' }} />
+                                            <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'var(--slate-400)' }} />
+                                            <Tooltip contentStyle={{ borderRadius: 8, fontSize: '0.8rem' }} formatter={v => [v, 'Readiness']} />
+                                            <Line type="monotone" dataKey="readiness" stroke="var(--teal-500)" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
                             </div>
-                            <div style={{ height: 200 }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={adherenceTrend} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--slate-200)" />
-                                        <XAxis dataKey="week" tick={{ fontSize: 11, fill: 'var(--slate-400)' }} />
-                                        <YAxis domain={[0, 5]} tick={{ fontSize: 11, fill: 'var(--slate-400)' }} />
-                                        <Tooltip contentStyle={{ borderRadius: 8, fontSize: '0.8rem' }} />
-                                        <Bar dataKey="completed" fill="var(--teal-500)" radius={[4, 4, 0, 0]} name="Sessions done" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-                    </div>
 
-                    {/* Symptom history */}
-                    <div className="card">
-                        <div className="card-title" style={{ marginBottom: 16 }}>
-                            <AlertTriangle size={14} style={{ display: 'inline', marginRight: 6, color: 'var(--amber-500)' }} />
-                            Recent Symptom Reports
-                        </div>
-                        {symptomHistory.map((s, i) => (
-                            <div key={i} style={{
-                                display: 'flex', alignItems: 'center', gap: 16,
-                                padding: '12px 0', borderBottom: i < symptomHistory.length - 1 ? '1px solid var(--slate-200)' : 'none'
-                            }}>
-                                <span style={{ fontSize: '0.8rem', color: 'var(--slate-400)', minWidth: 90 }}>{s.date}</span>
-                                <span style={{ flex: 1, fontWeight: 600, fontSize: '0.9rem' }}>{s.type}</span>
-                                <span className={`badge ${s.severity === 'mild' ? 'badge-green' : s.severity === 'moderate' ? 'badge-amber' : 'badge-red'}`}>
-                                    {s.severity}
-                                </span>
+                            {/* Fatigue chart */}
+                            <div className="card">
+                                <div className="card-title" style={{ marginBottom: 16 }}>
+                                    <ClipboardList size={14} style={{ display: 'inline', marginRight: 6, color: 'var(--teal-500)' }} />
+                                    Fatigue Level (1–10)
+                                </div>
+                                <div style={{ height: 180 }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={fatigueData} margin={{ top: 0, right: 5, bottom: 0, left: -20 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="var(--slate-200)" />
+                                            <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--slate-400)' }} />
+                                            <YAxis domain={[0, 10]} tick={{ fontSize: 10, fill: 'var(--slate-400)' }} />
+                                            <Tooltip contentStyle={{ borderRadius: 8, fontSize: '0.8rem' }} formatter={v => [v, 'Fatigue']} />
+                                            <Bar dataKey="fatigue" fill="var(--purple-500)" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
                             </div>
-                        ))}
-                    </div>
+
+                            {/* Symptom reports */}
+                            <div className="card">
+                                <div className="card-title" style={{ marginBottom: 16 }}>
+                                    <AlertCircle size={14} style={{ display: 'inline', marginRight: 6, color: 'var(--red-500)' }} />
+                                    Recent Symptom Reports
+                                </div>
+                                {symptoms.length === 0 ? (
+                                    <p style={{ color: 'var(--slate-400)', fontSize: '0.85rem' }}>No symptom reports yet. ✅</p>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        {symptoms.map(s => (
+                                            <div key={s.id} style={{
+                                                padding: '12px 14px', borderRadius: 8,
+                                                background: 'var(--off-white)', border: '1px solid var(--slate-200)'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                                    {severityBadge(s.severity)}
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--slate-400)' }}>
+                                                        {new Date(s.timestamp).toLocaleDateString('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                                <div style={{ fontSize: '0.85rem', color: 'var(--navy-900)', fontWeight: 600, marginBottom: 2 }}>
+                                                    {(s.symptoms || []).join(', ')}
+                                                </div>
+                                                {s.notes && <div style={{ fontSize: '0.8rem', color: 'var(--slate-500)' }}>{s.notes}</div>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="disclaimer-bar" style={{ marginTop: 32 }}>{t('common.disclaimer')}</div>
                 </div>

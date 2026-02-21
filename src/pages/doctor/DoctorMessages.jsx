@@ -1,156 +1,281 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import NavSidebar from '../../components/NavSidebar'
-import { Send, Heart } from 'lucide-react'
-
-const PATIENT_LIST = [
-    { id: 'p1', name: 'Matti Virtanen', condition: 'Post-MI', unread: 0 },
-    { id: 'p2', name: 'Ayşe Yılmaz', condition: 'Post-CABG', unread: 2 },
-    { id: 'p3', name: 'John Smith', condition: 'Heart Failure', unread: 1 },
-    { id: 'p4', name: 'Helena Korhonen', condition: 'Post-Stent', unread: 0 },
-    { id: 'p5', name: 'Mehmet Çelik', condition: 'Arrhythmia', unread: 0 },
-]
-
-const CONVERSATIONS = {
-    p1: [
-        { sender: 'patient', text: 'My resting HR was 64 today!', created_at: new Date(Date.now() - 3600000 * 3).toISOString() },
-        { sender: 'doctor', text: 'Excellent! That\'s a great improvement. Keep up the morning walks.', created_at: new Date(Date.now() - 3600000 * 2).toISOString() },
-    ],
-    p2: [
-        { sender: 'patient', text: 'I felt slightly dizzy after today\'s walk.', created_at: new Date(Date.now() - 7200000).toISOString() },
-        { sender: 'patient', text: 'Should I skip tomorrow\'s session?', created_at: new Date(Date.now() - 7100000).toISOString() },
-    ],
-    p3: [
-        { sender: 'patient', text: 'I\'m finding it hard to stay motivated...', created_at: new Date(Date.now() - 86400000).toISOString() },
-    ],
-    p4: [], p5: [],
-}
-
-function formatTime(iso) {
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
+import {
+    MessageCircle, Send, Search, Users, Shield, RefreshCw,
+    ChevronLeft, AlertCircle
+} from 'lucide-react'
 
 export default function DoctorMessages() {
     const { t } = useTranslation()
     const { user } = useAuth()
-    const [selected, setSelected] = useState('p2')
-    const [convos, setConvos] = useState(CONVERSATIONS)
+    const [searchParams] = useSearchParams()
+    const preselectedId = searchParams.get('patient')
+
+    const [patients, setPatients] = useState([])
+    const [selectedPatient, setSelectedPatient] = useState(null)
+    const [messages, setMessages] = useState([])
+    const [search, setSearch] = useState('')
     const [input, setInput] = useState('')
-    const listRef = useRef(null)
+    const [sending, setSending] = useState(false)
+    const [loading, setLoading] = useState(true)
+    const [showList, setShowList] = useState(true)    // mobile: toggle list vs chat
+    const messagesEndRef = useRef(null)
 
+    // Fetch patient list
     useEffect(() => {
-        listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
-    }, [selected, convos])
+        fetchPatients()
+    }, [])
 
-    function sendMessage(e) {
-        e.preventDefault()
-        if (!input.trim()) return
-        const msg = { sender: 'doctor', text: input, created_at: new Date().toISOString() }
-        setConvos(c => ({ ...c, [selected]: [...(c[selected] || []), msg] }))
-        setInput('')
+    async function fetchPatients() {
+        setLoading(true)
+        const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('role', 'patient')
+            .order('full_name')
+        setPatients(data || [])
+        setLoading(false)
+
+        // Auto-select the patient from URL param
+        if (preselectedId && data) {
+            const found = data.find(p => p.id === preselectedId)
+            if (found) {
+                setSelectedPatient(found)
+                setShowList(false)
+            }
+        }
     }
 
-    const msgs = convos[selected] || []
-    const patient = PATIENT_LIST.find(p => p.id === selected)
+    // Fetch messages when a patient is selected
+    useEffect(() => {
+        if (!selectedPatient || !user) return
+        fetchMessages()
+        // Subscribe to realtime
+        const channel = supabase
+            .channel(`messages-doctor-${selectedPatient.id}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+                filter: `sender_id=eq.${selectedPatient.id}`,
+            }, payload => {
+                setMessages(prev => [...prev, payload.new])
+            })
+            .subscribe()
+        return () => supabase.removeChannel(channel)
+    }, [selectedPatient?.id])
+
+    async function fetchMessages() {
+        if (!selectedPatient || !user) return
+        const { data } = await supabase
+            .from('messages')
+            .select('*')
+            .or(`and(sender_id.eq.${user.id},receiver_id.eq.${selectedPatient.id}),and(sender_id.eq.${selectedPatient.id},receiver_id.eq.${user.id})`)
+            .order('created_at', { ascending: true })
+        setMessages(data || [])
+    }
+
+    // Scroll to bottom on new message
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, [messages])
+
+    async function sendMessage() {
+        if (!input.trim() || !selectedPatient || !user) return
+        setSending(true)
+        const msg = {
+            sender_id: user.id,
+            receiver_id: selectedPatient.id,
+            content: input.trim(),
+        }
+        const { data, error } = await supabase.from('messages').insert(msg).select().single()
+        if (!error && data) {
+            setMessages(prev => [...prev, data])
+        }
+        setInput('')
+        setSending(false)
+    }
+
+    function handleKeyDown(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault()
+            sendMessage()
+        }
+    }
+
+    function selectPatient(p) {
+        setSelectedPatient(p)
+        setMessages([])
+        setShowList(false)
+    }
+
+    function getInitials(name) {
+        return (name || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    }
+
+    const filtered = patients.filter(p =>
+        (p.full_name || '').toLowerCase().includes(search.toLowerCase())
+    )
 
     return (
         <div className="app-layout">
-            <NavSidebar alertCount={1} />
-            <div className="app-main with-sidebar">
+            <NavSidebar />
+            <div className="app-main">
                 <div className="topbar">
-                    <h1 className="topbar-title">{t('doctor.messages_title')}</h1>
+                    {/* Mobile: back to list */}
+                    {!showList && (
+                        <button className="btn btn-ghost btn-sm" style={{ display: 'none' }} id="back-to-list" onClick={() => setShowList(true)}>
+                            <ChevronLeft size={16} /> Patients
+                        </button>
+                    )}
+                    <h1 className="topbar-title">
+                        <MessageCircle size={18} style={{ display: 'inline', marginRight: 8, color: 'var(--teal-500)' }} />
+                        {selectedPatient ? `Chat — ${selectedPatient.full_name}` : t('nav.messages')}
+                    </h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--green-500)' }}>
+                        <Shield size={13} /> {t('messages.secure')}
+                    </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
-                    {/* Patient list */}
-                    <div style={{ borderRight: '1px solid var(--slate-200)', overflowY: 'auto', background: 'var(--white)' }}>
-                        {PATIENT_LIST.map(p => (
-                            <button
-                                key={p.id}
-                                onClick={() => setSelected(p.id)}
-                                style={{
-                                    width: '100%', display: 'flex', alignItems: 'center', gap: 12,
-                                    padding: '14px 18px', background: selected === p.id ? 'rgba(8,145,178,0.06)' : 'none',
-                                    border: 'none', borderBottom: '1px solid var(--slate-200)',
-                                    cursor: 'pointer', textAlign: 'left',
-                                    borderLeft: selected === p.id ? '3px solid var(--teal-500)' : '3px solid transparent',
-                                }}
-                            >
-                                <div className="user-avatar" style={{ background: 'linear-gradient(135deg, var(--navy-700), var(--teal-500))', color: 'white' }}>
-                                    {p.name.split(' ').map(n => n[0]).join('')}
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--navy-900)' }}>{p.name}</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--slate-400)' }}>{p.condition}</div>
-                                </div>
-                                {p.unread > 0 && (
-                                    <div style={{
-                                        background: 'var(--red-500)', color: 'white', borderRadius: '50%',
-                                        width: 18, height: 18, fontSize: '0.7rem', fontWeight: 700,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                                    }}>{p.unread}</div>
-                                )}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Chat area */}
-                    <div style={{ display: 'flex', flexDirection: 'column', background: 'var(--off-white)' }}>
-                        {/* Patient header */}
-                        <div style={{
-                            background: 'var(--white)', borderBottom: '1px solid var(--slate-200)',
-                            padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 12
-                        }}>
-                            <div className="user-avatar" style={{ background: 'linear-gradient(135deg, var(--navy-700), var(--teal-500))', color: 'white' }}>
-                                {patient?.name.split(' ').map(n => n[0]).join('')}
-                            </div>
-                            <div>
-                                <div style={{ fontWeight: 700, color: 'var(--navy-900)' }}>{patient?.name}</div>
-                                <div style={{ fontSize: '0.78rem', color: 'var(--slate-400)' }}>{patient?.condition}</div>
-                            </div>
-                            <div style={{ marginLeft: 'auto' }}>
-                                <span className="badge badge-green">
-                                    <span style={{ width: 6, height: 6, background: 'var(--green-500)', borderRadius: '50%', display: 'inline-block' }} />
-                                    Secure Channel
-                                </span>
+                <div style={{ display: 'flex', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+                    {/* Patient list panel */}
+                    <div style={{
+                        width: 280, borderRight: '1px solid var(--slate-200)',
+                        display: 'flex', flexDirection: 'column',
+                        background: 'var(--white)',
+                        flexShrink: 0,
+                    }}>
+                        <div style={{ padding: '16px 16px 12px' }}>
+                            <div style={{ position: 'relative' }}>
+                                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate-400)' }} />
+                                <input
+                                    className="form-input"
+                                    style={{ paddingLeft: 32, fontSize: '0.85rem', height: 36, borderRadius: 'var(--radius-full)' }}
+                                    placeholder="Search patients..."
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                />
                             </div>
                         </div>
 
-                        {/* Messages */}
-                        <div ref={listRef} className="messages-list" style={{ flex: 1, overflowY: 'auto' }}>
-                            {msgs.length === 0 && (
-                                <div style={{ textAlign: 'center', color: 'var(--slate-400)', marginTop: 40, fontSize: '0.875rem' }}>
-                                    No messages yet. Start the conversation.
+                        <div style={{ flex: 1, overflowY: 'auto' }}>
+                            {loading && (
+                                <div style={{ textAlign: 'center', padding: 24, color: 'var(--slate-400)' }}>
+                                    <RefreshCw size={20} style={{ animation: 'spin 1s linear infinite' }} />
                                 </div>
                             )}
-                            {msgs.map((msg, i) => (
-                                <div key={i} style={{ alignSelf: msg.sender === 'doctor' ? 'flex-end' : 'flex-start', maxWidth: '75%' }}>
-                                    {msg.sender === 'patient' && (
-                                        <div style={{ fontSize: '0.7rem', color: 'var(--slate-400)', marginBottom: 4 }}>{patient?.name}</div>
-                                    )}
-                                    <div className={`message-bubble ${msg.sender === 'doctor' ? 'sent' : 'received'}`}>
-                                        {msg.text}
-                                        <div className="message-time">{formatTime(msg.created_at)}</div>
+
+                            {!loading && patients.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--slate-400)' }}>
+                                    <Users size={32} style={{ marginBottom: 8, opacity: 0.3 }} />
+                                    <p style={{ fontSize: '0.85rem' }}>No patients yet</p>
+                                </div>
+                            )}
+
+                            {filtered.map(p => (
+                                <div
+                                    key={p.id}
+                                    onClick={() => selectPatient(p)}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: 12,
+                                        padding: '12px 16px', cursor: 'pointer',
+                                        background: selectedPatient?.id === p.id ? 'rgba(8,145,178,0.08)' : 'transparent',
+                                        borderLeft: selectedPatient?.id === p.id ? '3px solid var(--teal-500)' : '3px solid transparent',
+                                        transition: 'var(--transition)',
+                                    }}
+                                    onMouseEnter={e => { if (selectedPatient?.id !== p.id) e.currentTarget.style.background = 'var(--off-white)' }}
+                                    onMouseLeave={e => { if (selectedPatient?.id !== p.id) e.currentTarget.style.background = 'transparent' }}
+                                >
+                                    <div className="user-avatar" style={{ width: 38, height: 38, fontSize: '0.85rem', flexShrink: 0 }}>
+                                        {getInitials(p.full_name)}
+                                    </div>
+                                    <div style={{ overflow: 'hidden' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--navy-900)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {p.full_name || 'Unknown'}
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--slate-400)' }}>
+                                            {p.onboarding_completed ? '✅ Active' : '⏳ Onboarding'}
+                                        </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
+                    </div>
 
-                        {/* Input */}
-                        <form className="message-input-row" onSubmit={sendMessage}>
-                            <input
-                                className="form-input"
-                                value={input}
-                                onChange={e => setInput(e.target.value)}
-                                placeholder={`Message ${patient?.name}...`}
-                                style={{ borderRadius: 'var(--radius-full)', paddingLeft: 20 }}
-                            />
-                            <button className="btn btn-primary" type="submit" disabled={!input.trim()} style={{ borderRadius: 'var(--radius-full)', padding: '10px 18px' }}>
-                                <Send size={16} />{t('doctor.send_message')}
-                            </button>
-                        </form>
+                    {/* Chat panel */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--off-white)', overflow: 'hidden' }}>
+                        {!selectedPatient ? (
+                            /* Empty state */
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--slate-400)' }}>
+                                <div style={{ width: 72, height: 72, background: 'rgba(8,145,178,0.08)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <MessageCircle size={32} color="var(--teal-400)" />
+                                </div>
+                                <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--navy-900)' }}>Select a patient</p>
+                                <p style={{ fontSize: '0.85rem', maxWidth: 240, textAlign: 'center' }}>
+                                    Choose a patient from the left panel to start a secure conversation.
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Chat header */}
+                                <div style={{ padding: '14px 20px', background: 'var(--white)', borderBottom: '1px solid var(--slate-200)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                                    <div className="user-avatar" style={{ width: 36, height: 36, fontSize: '0.85rem' }}>
+                                        {getInitials(selectedPatient.full_name)}
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--navy-900)' }}>{selectedPatient.full_name}</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--slate-400)' }}>Patient · {selectedPatient.language?.toUpperCase() || 'EN'}</div>
+                                    </div>
+                                </div>
+
+                                {/* Messages */}
+                                <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {messages.length === 0 && (
+                                        <div style={{ textAlign: 'center', marginTop: 40, color: 'var(--slate-400)' }}>
+                                            <MessageCircle size={24} style={{ marginBottom: 8, opacity: 0.4 }} />
+                                            <p style={{ fontSize: '0.85rem' }}>No messages yet. Start the conversation below.</p>
+                                        </div>
+                                    )}
+                                    {messages.map(msg => {
+                                        const isMe = msg.sender_id === user?.id
+                                        return (
+                                            <div key={msg.id} style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
+                                                <div className={`message-bubble ${isMe ? 'sent' : 'received'}`}>
+                                                    <div>{msg.content}</div>
+                                                    <div className="message-time">
+                                                        {new Date(msg.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                    <div ref={messagesEndRef} />
+                                </div>
+
+                                {/* Input */}
+                                <div className="message-input-row">
+                                    <input
+                                        className="form-input"
+                                        value={input}
+                                        onChange={e => setInput(e.target.value)}
+                                        onKeyDown={handleKeyDown}
+                                        placeholder={`Message ${selectedPatient.full_name}...`}
+                                        disabled={sending}
+                                    />
+                                    <button
+                                        className="btn btn-primary"
+                                        onClick={sendMessage}
+                                        disabled={!input.trim() || sending}
+                                    >
+                                        <Send size={16} />
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

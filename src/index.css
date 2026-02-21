@@ -1493,12 +1493,16 @@ body {
   display: none;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: 0 20px;
+  height: 56px;
   background: var(--white);
   border-bottom: 1px solid var(--slate-200);
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 200;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
 }
 
 /* Sidebar close button — hidden on desktop */
@@ -1584,15 +1588,11 @@ body {
     justify-content: space-between;
   }
 
-  /* App main margin reset — sidebar hidden on mobile */
-  .app-main.with-sidebar {
-    margin-left: 0;
-  }
-
-  /* Normal sidebar offset removed for mobile */
+  /* App main margin reset — sidebar hidden on mobile, topbar is fixed 56px */
+  .app-main.with-sidebar,
   .app-main {
     margin-left: 0;
-    padding-top: 0;
+    padding-top: 56px;
   }
 
 

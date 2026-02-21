@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import {
     Heart, Home, Activity, ClipboardList, Pill, MessageCircle,
-    BookOpen, Users, Bell, LayoutDashboard, LogOut, Stethoscope, Menu, X
+    BookOpen, Users, Bell, LayoutDashboard, LogOut, Stethoscope, Menu, X, Gauge
 } from 'lucide-react'
 import LanguageSelector from './LanguageSelector'
 
@@ -33,6 +33,7 @@ export default function NavSidebar({ alertCount = 0 }) {
         { to: '/patient', icon: Home, label: t('nav.home'), end: true },
         { to: '/patient/program', icon: Activity, label: t('nav.program') },
         { to: '/patient/checkin', icon: ClipboardList, label: t('nav.checkin') },
+        { to: '/patient/bp', icon: Gauge, label: 'Blood Pressure' },
         { to: '/patient/symptoms', icon: Heart, label: t('nav.symptoms') },
         { to: '/patient/medications', icon: Pill, label: t('nav.medications') },
         { to: '/patient/messages', icon: MessageCircle, label: t('nav.messages') },

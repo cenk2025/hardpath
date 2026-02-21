@@ -22,6 +22,7 @@ export default function PatientDetail() {
     const [metrics, setMetrics] = useState([])
     const [symptoms, setSymptoms] = useState([])
     const [medications, setMedications] = useState([])
+    const [bpLogs, setBpLogs] = useState([])
     const [loading, setLoading] = useState(true)
     const [showMedForm, setShowMedForm] = useState(false)
     const [newMed, setNewMed] = useState({ name: '', dose: '', time_of_day: '08:00' })
@@ -53,6 +54,16 @@ export default function PatientDetail() {
                 .from('medications').select('*').eq('patient_id', id)
                 .order('created_at', { ascending: true })
             setMedications(meds || [])
+
+            // Last 7 days of blood pressure
+            const since = new Date()
+            since.setDate(since.getDate() - 6)
+            since.setHours(0, 0, 0, 0)
+            const { data: bp } = await supabase
+                .from('blood_pressure_logs').select('*').eq('patient_id', id)
+                .gte('recorded_at', since.toISOString())
+                .order('recorded_at', { ascending: true })
+            setBpLogs(bp || [])
         } catch (err) {
             console.error('PatientDetail load error:', err)
         } finally {
@@ -403,7 +414,66 @@ export default function PatientDetail() {
                         </div>
                     </div>
 
+                    {/* ─── Blood Pressure Weekly Table ─── */}
+                    <div className="card" style={{ marginTop: 24 }}>
+                        <div className="card-title" style={{ marginBottom: 20 }}>
+                            <Activity size={14} style={{ display: 'inline', marginRight: 6, color: 'var(--red-500)' }} />
+                            Blood Pressure — Last 7 Days
+                        </div>
+
+                        {/* Table header */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 0, background: 'var(--off-white)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--slate-200)' }}>
+                            <div style={{ padding: '8px 14px', fontWeight: 700, fontSize: '0.78rem', color: 'var(--slate-500)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--slate-200)' }}>Date</div>
+                            <div style={{ padding: '8px 14px', fontWeight: 700, fontSize: '0.78rem', color: 'var(--amber-500)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--slate-200)', borderLeft: '1px solid var(--slate-200)' }}>🌅 Morning</div>
+                            <div style={{ padding: '8px 14px', fontWeight: 700, fontSize: '0.78rem', color: 'var(--purple-500)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--slate-200)', borderLeft: '1px solid var(--slate-200)' }}>🌙 Evening</div>
+                            <div style={{ padding: '8px 14px', fontWeight: 700, fontSize: '0.78rem', color: 'var(--slate-500)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--slate-200)', borderLeft: '1px solid var(--slate-200)' }}>Status</div>
+                            {Array.from({ length: 7 }, (_, i) => {
+                                const d = new Date()
+                                d.setDate(d.getDate() - (6 - i))
+                                const iso = d.toISOString().slice(0, 10)
+                                const label = d.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })
+                                const isToday = iso === new Date().toISOString().slice(0, 10)
+                                const dayLogs = bpLogs.filter(l => l.recorded_at.slice(0, 10) === iso)
+                                const morning = dayLogs.find(l => l.period === 'morning')
+                                const evening = dayLogs.find(l => l.period === 'evening')
+                                const maxSys = Math.max(morning?.systolic || 0, evening?.systolic || 0)
+                                const rowBg = isToday ? 'rgba(8,145,178,0.04)' : i % 2 === 0 ? 'var(--white)' : 'rgba(248,250,252,0.6)'
+                                const statusColor = maxSys >= 140 ? 'var(--red-500)' : maxSys >= 130 ? 'var(--amber-500)' : maxSys > 0 ? 'var(--green-500)' : 'var(--slate-300)'
+                                const statusLabel = maxSys >= 140 ? 'High' : maxSys >= 130 ? 'Elevated' : maxSys > 0 ? 'Normal' : '—'
+                                return (
+                                    <>
+                                        <div key={`d-${iso}`} style={{ padding: '10px 14px', background: rowBg, borderTop: '1px solid var(--slate-200)', fontWeight: isToday ? 700 : 500, fontSize: '0.85rem', color: isToday ? 'var(--teal-600)' : 'var(--navy-900)' }}>
+                                            {label}{isToday && <span className="badge badge-teal" style={{ marginLeft: 6, fontSize: '0.65rem' }}>Today</span>}
+                                        </div>
+                                        <div key={`m-${iso}`} style={{ padding: '10px 14px', background: rowBg, borderTop: '1px solid var(--slate-200)', borderLeft: '1px solid var(--slate-200)', fontWeight: 700, fontSize: '0.9rem', color: morning ? (morning.systolic >= 140 ? 'var(--red-500)' : morning.systolic >= 130 ? 'var(--amber-500)' : 'var(--green-500)') : 'var(--slate-300)' }}>
+                                            {morning ? `${morning.systolic}/${morning.diastolic}` : '—'}
+                                        </div>
+                                        <div key={`e-${iso}`} style={{ padding: '10px 14px', background: rowBg, borderTop: '1px solid var(--slate-200)', borderLeft: '1px solid var(--slate-200)', fontWeight: 700, fontSize: '0.9rem', color: evening ? (evening.systolic >= 140 ? 'var(--red-500)' : evening.systolic >= 130 ? 'var(--amber-500)' : 'var(--green-500)') : 'var(--slate-300)' }}>
+                                            {evening ? `${evening.systolic}/${evening.diastolic}` : '—'}
+                                        </div>
+                                        <div key={`s-${iso}`} style={{ padding: '10px 14px', background: rowBg, borderTop: '1px solid var(--slate-200)', borderLeft: '1px solid var(--slate-200)', fontSize: '0.82rem', fontWeight: 700, color: statusColor }}>
+                                            {statusLabel}
+                                        </div>
+                                    </>
+                                )
+                            })}
+                        </div>
+
+                        {bpLogs.length === 0 && (
+                            <p style={{ textAlign: 'center', color: 'var(--slate-400)', fontSize: '0.85rem', marginTop: 12 }}>
+                                Patient has not logged any blood pressure readings this week.
+                            </p>
+                        )}
+
+                        <div style={{ marginTop: 12, fontSize: '0.78rem', color: 'var(--slate-400)', display: 'flex', gap: 16 }}>
+                            <span style={{ color: 'var(--green-500)', fontWeight: 700 }}>● Normal: &lt;130/80</span>
+                            <span style={{ color: 'var(--amber-500)', fontWeight: 700 }}>● Elevated: 130–139</span>
+                            <span style={{ color: 'var(--red-500)', fontWeight: 700 }}>● High: 140+</span>
+                        </div>
+                    </div>
+
                     <div className="disclaimer-bar" style={{ marginTop: 32 }}>{t('common.disclaimer')}</div>
+
 
                 </div>
             </div>

@@ -14,6 +14,7 @@ import SymptomReport from './pages/patient/SymptomReport'
 import Medications from './pages/patient/Medications'
 import Messages from './pages/patient/Messages'
 import Education from './pages/patient/Education'
+import BloodPressure from './pages/patient/BloodPressure'
 import DoctorDashboard from './pages/doctor/DoctorDashboard'
 import PatientDetail from './pages/doctor/PatientDetail'
 import ProgramManager from './pages/doctor/ProgramManager'
@@ -70,6 +71,7 @@ export default function App() {
                     <Route path="/patient" element={<ProtectedRoute role="patient"><PatientDashboard /></ProtectedRoute>} />
                     <Route path="/patient/program" element={<ProtectedRoute role="patient"><RehabProgram /></ProtectedRoute>} />
                     <Route path="/patient/checkin" element={<ProtectedRoute role="patient"><DailyCheckin /></ProtectedRoute>} />
+                    <Route path="/patient/bp" element={<ProtectedRoute role="patient"><BloodPressure /></ProtectedRoute>} />
                     <Route path="/patient/symptoms" element={<ProtectedRoute role="patient"><SymptomReport /></ProtectedRoute>} />
                     <Route path="/patient/medications" element={<ProtectedRoute role="patient"><Medications /></ProtectedRoute>} />
                     <Route path="/patient/messages" element={<ProtectedRoute role="patient"><Messages /></ProtectedRoute>} />

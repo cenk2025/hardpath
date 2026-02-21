@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import NavSidebar from '../../components/NavSidebar'
-import { Heart, Activity, Moon, Zap, CheckCircle, AlertTriangle } from 'lucide-react'
+import { Heart, Activity, Moon, Zap, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react'
 import { calcReadinessScore } from '../../lib/aiRisk'
 
 const SYMPTOMS = [
@@ -18,11 +18,14 @@ export default function DailyCheckin() {
     const { user } = useAuth()
     const [fatigue, setFatigue] = useState(7)
     const [restHr, setRestHr] = useState('')
+    const [sleepHours, setSleepHours] = useState('')
+    const [hrv, setHrv] = useState('')
     const [selectedSymptoms, setSelectedSymptoms] = useState([])
     const [submitted, setSubmitted] = useState(false)
     const [loading, setLoading] = useState(false)
+    const [saveError, setSaveError] = useState(null)
 
-    const readiness = calcReadinessScore({ fatigue, hr: Number(restHr) || 70, sleep: 7.5, hrv: 42 })
+    const readiness = calcReadinessScore({ fatigue, hr: Number(restHr) || 70, sleep: Number(sleepHours) || 7, hrv: Number(hrv) || 42 })
 
     function toggleSymptom(key) {
         setSelectedSymptoms(s => s.includes(key) ? s.filter(x => x !== key) : [...s, key])
@@ -31,20 +34,24 @@ export default function DailyCheckin() {
     async function handleSubmit(e) {
         e.preventDefault()
         setLoading(true)
-        try {
-            await supabase.from('daily_metrics').insert({
-                patient_id: user.id,
-                fatigue_level: fatigue,
-                resting_hr: Number(restHr) || null,
-                symptoms: selectedSymptoms,
-                readiness_score: readiness.score,
-                recorded_at: new Date().toISOString(),
-            })
-        } catch (err) {
-            console.error(err)
-        }
-        setSubmitted(true)
+        setSaveError(null)
+        const { error: err } = await supabase.from('daily_metrics').insert({
+            patient_id: user.id,
+            fatigue_level: fatigue,
+            resting_hr: Number(restHr) || null,
+            sleep_hours: Number(sleepHours) || null,
+            hrv_ms: Number(hrv) || null,
+            symptoms: selectedSymptoms,
+            readiness_score: readiness.score,
+            recorded_at: new Date().toISOString(),
+        })
         setLoading(false)
+        if (err) {
+            console.error('Check-in save error:', err)
+            setSaveError('Could not save: ' + err.message + ' — make sure the daily_metrics table exists and RLS allows inserts.')
+        } else {
+            setSubmitted(true)
+        }
     }
 
     if (submitted) {
@@ -142,6 +149,50 @@ export default function DailyCheckin() {
                                 </div>
                             </div>
 
+                            {/* Sleep + HRV */}
+                            <div className="grid-2">
+                                <div className="card">
+                                    <div className="form-group">
+                                        <label className="form-label">
+                                            <Moon size={14} style={{ display: 'inline', marginRight: 6, color: 'var(--purple-500)' }} />
+                                            Sleep Last Night
+                                        </label>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <input
+                                                type="number"
+                                                className="form-input"
+                                                value={sleepHours}
+                                                onChange={e => setSleepHours(e.target.value)}
+                                                placeholder="e.g. 7.5"
+                                                min={0} max={24} step={0.5}
+                                                style={{ maxWidth: 120 }}
+                                            />
+                                            <span style={{ color: 'var(--slate-500)', fontSize: '0.9rem' }}>{t('patient.hrs')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="card">
+                                    <div className="form-group">
+                                        <label className="form-label">
+                                            <Zap size={14} style={{ display: 'inline', marginRight: 6, color: 'var(--amber-500)' }} />
+                                            HRV (Heart Rate Variability)
+                                        </label>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <input
+                                                type="number"
+                                                className="form-input"
+                                                value={hrv}
+                                                onChange={e => setHrv(e.target.value)}
+                                                placeholder="e.g. 42"
+                                                min={10} max={200}
+                                                style={{ maxWidth: 120 }}
+                                            />
+                                            <span style={{ color: 'var(--slate-500)', fontSize: '0.9rem' }}>{t('patient.ms')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Symptoms */}
                             <div className="card">
                                 <p className="form-label" style={{ marginBottom: 14 }}>{t('patient.symptoms_today')}</p>
@@ -169,10 +220,22 @@ export default function DailyCheckin() {
                                 </div>
                             </div>
 
+                            {/* Save error */}
+                            {saveError && (
+                                <div className="alert-banner danger">
+                                    <AlertCircle size={16} />
+                                    <div>
+                                        <strong>Save failed</strong>
+                                        <p style={{ fontSize: '0.82rem', marginTop: 4 }}>{saveError}</p>
+                                    </div>
+                                </div>
+                            )}
+
                             <button className="btn btn-primary btn-lg" type="submit" disabled={loading}>
                                 {loading ? <><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2.5 }} /> Saving...</> : t('patient.submit_checkin')}
                             </button>
                         </form>
+
                     </div>
                     <div className="disclaimer-bar" style={{ marginTop: 32 }}>{t('common.disclaimer')}</div>
                 </div>

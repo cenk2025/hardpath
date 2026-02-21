@@ -19,6 +19,7 @@ import PatientDetail from './pages/doctor/PatientDetail'
 import ProgramManager from './pages/doctor/ProgramManager'
 import Alerts from './pages/doctor/Alerts'
 import DoctorMessages from './pages/doctor/DoctorMessages'
+import ProfilePage from './pages/ProfilePage'
 
 function ProtectedRoute({ children, role }) {
     const { user, profile, loading } = useAuth()
@@ -80,6 +81,9 @@ export default function App() {
                     <Route path="/doctor/programs" element={<ProtectedRoute role="doctor"><ProgramManager /></ProtectedRoute>} />
                     <Route path="/doctor/alerts" element={<ProtectedRoute role="doctor"><Alerts /></ProtectedRoute>} />
                     <Route path="/doctor/messages" element={<ProtectedRoute role="doctor"><DoctorMessages /></ProtectedRoute>} />
+
+                    {/* Profile (shared by patient + doctor) */}
+                    <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
                     {/* Fallback */}
                     <Route path="*" element={<Navigate to="/" replace />} />

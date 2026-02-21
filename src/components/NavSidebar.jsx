@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -89,15 +89,24 @@ export default function NavSidebar({ alertCount = 0 }) {
                 <div style={{ marginBottom: 12, padding: '0 2px' }}>
                     <LanguageSelector dark />
                 </div>
-                <div className="sidebar-user">
-                    <div className="user-avatar">
-                        {profile?.full_name?.[0]?.toUpperCase() || 'U'}
+                <Link
+                    to="/profile"
+                    style={{ textDecoration: 'none', display: 'block' }}
+                    title="View / Edit Profile"
+                >
+                    <div className="sidebar-user" style={{ cursor: 'pointer', borderRadius: 8, transition: 'var(--transition)' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                        onMouseLeave={e => e.currentTarget.style.background = ''}
+                    >
+                        <div className="user-avatar">
+                            {profile?.full_name?.[0]?.toUpperCase() || 'U'}
+                        </div>
+                        <div className="user-info">
+                            <div className="user-name">{profile?.full_name || 'User'}</div>
+                            <div className="user-role">{profile?.role || 'patient'}</div>
+                        </div>
                     </div>
-                    <div className="user-info">
-                        <div className="user-name">{profile?.full_name || 'User'}</div>
-                        <div className="user-role">{profile?.role || 'patient'}</div>
-                    </div>
-                </div>
+                </Link>
                 <button className="nav-link" onClick={handleLogout} style={{ marginTop: 4 }}>
                     <LogOut size={18} />
                     {t('nav.logout')}

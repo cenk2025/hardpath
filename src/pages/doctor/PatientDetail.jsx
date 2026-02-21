@@ -7,7 +7,7 @@ import NavSidebar from '../../components/NavSidebar'
 import {
     ArrowLeft, Activity, MessageCircle, AlertCircle,
     Heart, ClipboardList, RefreshCw, User, Calendar,
-    Pill, Plus, Trash2, Clock
+    Pill, Plus, Trash2, Clock, Watch
 } from 'lucide-react'
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -23,6 +23,7 @@ export default function PatientDetail() {
     const [symptoms, setSymptoms] = useState([])
     const [medications, setMedications] = useState([])
     const [bpLogs, setBpLogs] = useState([])
+    const [wearables, setWearables] = useState([])
     const [loading, setLoading] = useState(true)
     const [showMedForm, setShowMedForm] = useState(false)
     const [newMed, setNewMed] = useState({ name: '', dose: '', time_of_day: '08:00' })
@@ -64,6 +65,14 @@ export default function PatientDetail() {
                 .gte('recorded_at', since.toISOString())
                 .order('recorded_at', { ascending: true })
             setBpLogs(bp || [])
+
+            // Wearable connections
+            const { data: wearableData } = await supabase
+                .from('wearable_connections')
+                .select('provider, status, last_sync_at')
+                .eq('patient_id', id)
+                .eq('status', 'connected')
+            setWearables(wearableData || [])
         } catch (err) {
             console.error('PatientDetail load error:', err)
         } finally {
@@ -162,6 +171,13 @@ export default function PatientDetail() {
                         </button>
                         <div style={{ width: 1, height: 20, background: 'var(--slate-200)' }} />
                         <h1 className="topbar-title">{patient.full_name || 'Patient'}</h1>
+                        {wearables.length > 0 && (
+                            <span className="badge badge-teal" title={`${wearables.length} device(s) connected — auto-syncing`}
+                                style={{ fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <Watch size={11} />
+                                {wearables.length} device{wearables.length > 1 ? 's' : ''} syncing
+                            </span>
+                        )}
                     </div>
                     <div style={{ display: 'flex', gap: 10 }}>
                         <button className="btn btn-secondary btn-sm" onClick={fetchAll}>

@@ -22,6 +22,7 @@ import ProgramManager from './pages/doctor/ProgramManager'
 import Alerts from './pages/doctor/Alerts'
 import DoctorMessages from './pages/doctor/DoctorMessages'
 import ProfilePage from './pages/ProfilePage'
+import AdminDashboard from './pages/admin/AdminDashboard'
 
 function ProtectedRoute({ children, role }) {
     const { user, profile, loading } = useAuth()
@@ -42,6 +43,21 @@ function ProtectedRoute({ children, role }) {
     if (user && profile && !profile.onboarding_completed) {
         return <Navigate to="/onboarding" replace />
     }
+    return children
+}
+
+function AdminRoute({ children }) {
+    const { user, profile, loading } = useAuth()
+    if (loading) {
+        return (
+            <div className="loading-page">
+                <div className="spinner" />
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>Loading...</p>
+            </div>
+        )
+    }
+    if (!user) return <Navigate to="/login" replace />
+    if (!profile?.is_admin) return <Navigate to="/" replace />
     return children
 }
 
@@ -88,6 +104,9 @@ export default function App() {
 
                     {/* Profile (shared by patient + doctor) */}
                     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+
+                    {/* Admin */}
+                    <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
 
                     {/* Fallback */}
                     <Route path="*" element={<Navigate to="/" replace />} />

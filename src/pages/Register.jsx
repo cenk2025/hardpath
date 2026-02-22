@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
-import { Heart, Mail, Lock, User, Eye, EyeOff, AlertCircle, Stethoscope, Shield, CheckCircle, Info } from 'lucide-react'
+import { Heart, Mail, Lock, User, Eye, EyeOff, AlertCircle, Shield, CheckCircle, Info } from 'lucide-react'
 import LanguageSelector from '../components/LanguageSelector'
 
 export default function Register() {
@@ -10,6 +10,7 @@ export default function Register() {
     const { signUp } = useAuth()
     const navigate = useNavigate()
     const [form, setForm] = useState({ fullName: '', email: '', password: '', role: 'patient' })
+    // role is always 'patient' — doctors are assigned by admin only
     const [showPw, setShowPw] = useState(false)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
@@ -160,22 +161,18 @@ export default function Register() {
                             </div>
                         </div>
 
-                        <div className="form-group">
-                            <label className="form-label">{t('auth.role')}</label>
-                            <div className="role-selector">
-                                <button type="button"
-                                    className={`role-option${form.role === 'patient' ? ' selected' : ''}`}
-                                    onClick={() => setForm(f => ({ ...f, role: 'patient' }))}>
-                                    <Heart size={18} color={form.role === 'patient' ? 'var(--teal-500)' : 'var(--slate-400)'} />
-                                    <span>{t('auth.role_patient')}</span>
-                                </button>
-                                <button type="button"
-                                    className={`role-option${form.role === 'doctor' ? ' selected' : ''}`}
-                                    onClick={() => setForm(f => ({ ...f, role: 'doctor' }))}>
-                                    <Stethoscope size={18} color={form.role === 'doctor' ? 'var(--teal-500)' : 'var(--slate-400)'} />
-                                    <span>{t('auth.role_doctor')}</span>
-                                </button>
-                            </div>
+                        {/* Doctor note — no self-registration allowed */}
+                        <div style={{
+                            display: 'flex', alignItems: 'flex-start', gap: 10,
+                            padding: '12px 14px', borderRadius: 10,
+                            background: 'rgba(8,145,178,0.05)',
+                            border: '1px solid rgba(8,145,178,0.18)',
+                            marginBottom: 4,
+                        }}>
+                            <Info size={14} style={{ color: 'var(--teal-500)', marginTop: 2, flexShrink: 0 }} />
+                            <p style={{ fontSize: '0.78rem', color: 'var(--slate-600)', lineHeight: 1.5 }}>
+                                <strong>Medical professional?</strong> Doctor accounts are granted by your clinic administrator. Please contact your HeartPath system administrator to request access.
+                            </p>
                         </div>
 
                         {/* ── Patient Health Data Consent Block ── */}

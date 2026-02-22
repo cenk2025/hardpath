@@ -4,13 +4,14 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import {
     Heart, Home, Activity, ClipboardList, Pill, MessageCircle,
-    BookOpen, Users, Bell, LayoutDashboard, LogOut, Stethoscope, Menu, X, Gauge, Watch
+    BookOpen, Users, Bell, LayoutDashboard, LogOut, Stethoscope, Menu, X, Gauge, Watch, Shield
 } from 'lucide-react'
 import LanguageSelector from './LanguageSelector'
 
 export default function NavSidebar({ alertCount = 0 }) {
     const { t } = useTranslation()
     const { profile, signOut, isDoctor } = useAuth()
+    const isAdmin = profile?.is_admin === true
     const navigate = useNavigate()
     const location = useLocation()
     const [open, setOpen] = useState(false)
@@ -91,6 +92,24 @@ export default function NavSidebar({ alertCount = 0 }) {
                 <div style={{ marginBottom: 12, padding: '0 2px' }}>
                     <LanguageSelector dark />
                 </div>
+
+                {/* Admin panel shortcut — only for admins */}
+                {isAdmin && (
+                    <NavLink
+                        to="/admin"
+                        className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+                        style={{ marginBottom: 4 }}
+                    >
+                        <Shield size={18} />
+                        Admin Panel
+                        <span style={{
+                            marginLeft: 'auto', fontSize: '0.65rem', fontWeight: 700,
+                            background: 'rgba(8,145,178,0.25)', color: 'var(--teal-400)',
+                            padding: '2px 6px', borderRadius: 99, textTransform: 'uppercase',
+                        }}>Admin</span>
+                    </NavLink>
+                )}
+
                 <Link
                     to="/profile"
                     style={{ textDecoration: 'none', display: 'block' }}
@@ -105,7 +124,10 @@ export default function NavSidebar({ alertCount = 0 }) {
                         </div>
                         <div className="user-info">
                             <div className="user-name">{profile?.full_name || 'User'}</div>
-                            <div className="user-role">{profile?.role || 'patient'}</div>
+                            <div className="user-role">
+                                {profile?.role || 'patient'}
+                                {isAdmin && <span style={{ color: 'var(--teal-400)', fontSize: '0.7rem', marginLeft: 4 }}>· Admin</span>}
+                            </div>
                         </div>
                     </div>
                 </Link>
